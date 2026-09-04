@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+._*
+
+# Editor and temporary files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Surge local profiles and sensitive files
+*.conf
+*.mobileconfig
+*.crt
+*.p12
+*.cer
+
+# Network logs and exports
+*.csv
+*.har
+

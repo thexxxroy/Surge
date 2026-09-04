@@ -1,0 +1,21 @@
+#!name=菜鸟开屏广告补丁
+#!desc=补充拦截菜鸟裹裹使用的穿山甲及优量汇开屏广告域名
+#!author=thexxxroy
+#!homepage=https://github.com/thexxxroy/Surge
+#!category=去广告
+#!date=2026-09-04
+
+[Rule]
+# 穿山甲广告接口及备用接口
+DOMAIN,api-access.pangolin-sdk-toutiao.com,REJECT
+DOMAIN,api-access.pangolin-sdk-toutiao1.com,REJECT
+DOMAIN,api-access.pangolin-sdk-toutiao-b.com,REJECT
+
+# 其他广告供应商
+DOMAIN,ssp.iytcdn.com,REJECT
+
+# 腾讯优量汇广告 SDK、请求及素材
+DOMAIN,sdk.e.qq.com,REJECT
+DOMAIN,sdkquic.e.qq.com,REJECT
+DOMAIN-SUFFIX,gdt.qq.com,REJECT
+DOMAIN-SUFFIX,ugdtimg.com,REJECT

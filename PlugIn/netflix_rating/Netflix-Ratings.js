@@ -1,7 +1,7 @@
 'use strict';
 /*
  * Netflix 网页端豆瓣 + IMDb 评分
- * 版本:2026.09.07.6    最后更新:2026-09-07
+ * 版本:2026.09.07.7    最后更新:2026-09-07
  *
  * 本文件同时用于 Surge 运行时与 Node 测试:
  *   - 底部 module.exports 守卫让 Surge(无 module)不报错
@@ -15,7 +15,7 @@
  * #surge-nfr-badge 的 data-v,即可知道实际加载的是哪一版。
  */
 
-const VERSION = '2026.09.07.6';
+const VERSION = '2026.09.07.7';
 
 // ==================== 缓存 ====================
 
@@ -162,7 +162,9 @@ function buildDoubanUrl(query) {
 
 // ==================== 编排 ====================
 
-const TTL_OK = 7 * 24 * 60 * 60 * 1000;
+// 24 小时:评分一天内基本不动,几乎不损失命中率,
+// 但把「出错后自愈」的窗口从一周缩短到一天。
+const TTL_OK = 24 * 60 * 60 * 1000;
 // 配了 key 却没拿到 IMDb,多半是上游抖动而非真的没有评分。
 // 若按成功缓存 7 天,一次抖动会被冻结一周,因此单列一档短 TTL。
 const TTL_PARTIAL = 30 * 60 * 1000;
@@ -204,12 +206,14 @@ async function resolveRatings(titleId, deps) {
   return { ok: true, title: meta, imdb: imdb, douban: db, diag: diag };
 }
 
-async function serveRatings(titleId, store, deps, now) {
+async function serveRatings(titleId, store, deps, now, fresh) {
   // 缓存键必须区分「已配置 key」与「未配置 key」两种形态:两者的结果不同
   // (前者带 IMDb 评分且豆瓣为精确匹配),否则用户新增或移除 key 后仍会命中旧缓存。
   const key = CACHE_PREFIX + 'res:' + (deps.variant || 'n') + ':' + titleId;
-  const hit = cacheRead(store.read(key), now);
-  if (hit) return hit;
+  if (!fresh) {
+    const hit = cacheRead(store.read(key), now);
+    if (hit) return hit;
+  }
 
   const result = await resolveRatings(titleId, deps);
   // 配了 key 却缺 IMDb 视为部分成功,只短暂缓存,以便下次自动重试。
@@ -308,12 +312,17 @@ function jsonResponse(obj) {
 
 function handleApiRequest() {
   let titleId = null;
+  let fresh = false;
   try {
-    titleId = new URL($request.url).searchParams.get('id');
+    const params = new URL($request.url).searchParams;
+    titleId = params.get('id');
+    // 手动强刷:在浏览器直接访问 /__nfr?id=<id>&fresh=1 可绕过缓存重查,
+    // 响应里的 diag 字段会说明每一步的结果。页面自身不会带这个参数。
+    fresh = params.get('fresh') === '1';
   } catch (_) { /* 落到下面的空值分支 */ }
   if (!titleId || !/^\d+$/.test(titleId)) { $done(jsonResponse({ ok: false })); return; }
 
-  serveRatings(titleId, surgeStore(), surgeDeps($argument), Date.now())
+  serveRatings(titleId, surgeStore(), surgeDeps($argument), Date.now(), fresh)
     .then(function (result) { $done(jsonResponse(result)); })
     .catch(function () { $done(jsonResponse({ ok: false })); });
 }

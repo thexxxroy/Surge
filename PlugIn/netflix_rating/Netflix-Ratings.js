@@ -133,6 +133,12 @@ function buildTitleUrl(titleId) {
   return 'https://www.netflix.com/title/' + titleId;
 }
 
+// Surge 的 #!arguments 必须有默认值,模块里用 none 占位。
+// 用形状校验而非等值比较,顺带挡掉空值与其他占位写法。
+function hasApiKey(apiKey) {
+  return typeof apiKey === 'string' && /^[A-Za-z0-9]{6,}$/.test(apiKey.trim());
+}
+
 function buildOmdbUrl(apiKey, meta) {
   let u = 'https://www.omdbapi.com/?apikey=' + encodeURIComponent(apiKey) +
           '&t=' + encodeURIComponent(meta.name);
@@ -221,9 +227,9 @@ function surgeDeps(apiKey) {
       } catch (_) { return null; }
     },
     fetchOmdb: async function (meta) {
-      if (!apiKey) return null;
+      if (!hasApiKey(apiKey)) return null;
       try {
-        return parseOmdb(await httpGet(buildOmdbUrl(apiKey, meta), {}));
+        return parseOmdb(await httpGet(buildOmdbUrl(apiKey.trim(), meta), {}));
       } catch (_) { return null; }
     },
     // 按 imdbID 搜索是精确匹配,结果唯一,直接取第一条候选
@@ -412,6 +418,7 @@ if (typeof module !== 'undefined' && module.exports) {
     doubanResult: doubanResult,
     extractTitleId: extractTitleId,
     buildTitleUrl: buildTitleUrl,
+    hasApiKey: hasApiKey,
     buildOmdbUrl: buildOmdbUrl,
     buildDoubanUrl: buildDoubanUrl,
     resolveRatings: resolveRatings,

@@ -178,7 +178,9 @@ async function resolveRatings(titleId, deps) {
 }
 
 async function serveRatings(titleId, store, deps, now) {
-  const key = CACHE_PREFIX + 'res:' + titleId;
+  // 缓存键必须区分「已配置 key」与「未配置 key」两种形态:两者的结果不同
+  // (前者带 IMDb 评分且豆瓣为精确匹配),否则用户新增或移除 key 后仍会命中旧缓存。
+  const key = CACHE_PREFIX + 'res:' + (deps.variant || 'n') + ':' + titleId;
   const hit = cacheRead(store.read(key), now);
   if (hit) return hit;
 
@@ -219,6 +221,7 @@ function surgeStore() {
 
 function surgeDeps(apiKey) {
   return {
+    variant: hasApiKey(apiKey) ? 'k' : 'n',
     fetchMeta: async function (titleId) {
       try {
         // Accept-Language 强制英文:Netflix 的本地化译名与豆瓣不一致,

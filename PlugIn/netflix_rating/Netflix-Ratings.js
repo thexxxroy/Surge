@@ -1,7 +1,7 @@
 'use strict';
 /*
  * Netflix 网页端豆瓣 + IMDb 评分
- * 版本:2026.09.07.3    最后更新:2026-09-07
+ * 版本:2026.09.07.4    最后更新:2026-09-07
  *
  * 本文件同时用于 Surge 运行时与 Node 测试:
  *   - 底部 module.exports 守卫让 Surge(无 module)不报错
@@ -15,7 +15,7 @@
  * #surge-nfr-badge 的 data-v,即可知道实际加载的是哪一版。
  */
 
-const VERSION = '2026.09.07.3';
+const VERSION = '2026.09.07.4';
 
 // ==================== 缓存 ====================
 
@@ -206,7 +206,13 @@ async function serveRatings(titleId, store, deps, now) {
 // ==================== Surge 运行时 ====================
 
 const API_PATH = '/__nfr';
+// Netflix 详情页未压缩约 936KB,gzip 后约 126KB,实测可省约 1 秒。
+// 但无法确认 $httpClient 是否总会解压,故解析失败时回退到不带该头的请求。
 const EN_HEADERS = { 'Accept-Language': 'en-US,en;q=0.9' };
+const EN_HEADERS_GZIP = {
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Accept-Encoding': 'gzip, deflate'
+};
 
 function httpGet(url, headers) {
   return new Promise(function (resolve, reject) {
@@ -232,10 +238,15 @@ function surgeDeps(apiKey) {
   return {
     variant: hasApiKey(apiKey) ? 'k' : 'n',
     fetchMeta: async function (titleId) {
+      // Accept-Language 强制英文:Netflix 的本地化译名与豆瓣不一致,
+      // 必须拿英文原名才能经 OMDb 换到 imdbID。
+      const url = buildTitleUrl(titleId);
       try {
-        // Accept-Language 强制英文:Netflix 的本地化译名与豆瓣不一致,
-        // 必须拿英文原名才能经 OMDb 换到 imdbID。
-        return parseNetflixJsonLd(await httpGet(buildTitleUrl(titleId), EN_HEADERS));
+        const meta = parseNetflixJsonLd(await httpGet(url, EN_HEADERS_GZIP));
+        if (meta) return meta;
+      } catch (_) { /* 落到下面的非压缩重试 */ }
+      try {
+        return parseNetflixJsonLd(await httpGet(url, EN_HEADERS));
       } catch (_) { return null; }
     },
     fetchOmdb: async function (meta) {
@@ -379,6 +390,57 @@ function pageAgent(extractTitleId, VERSION) {
     return a;
   }
 
+  // 弹窗刚打开时先占位。冷启动要串行请求 Netflix 详情页 + OMDb + 豆瓣,
+  // 可能耗时数秒,没有占位的话用户无从判断脚本是否生效。
+  // CSP 不允许注入 @keyframes,脉冲用 Web Animations API 实现。
+  function paintPending(anchor, id) {
+    var old = document.getElementById(MARK);
+    if (old) old.remove();
+    var box = document.createElement('span');
+    box.id = MARK;
+    box.dataset.nfrId = id;
+    box.dataset.v = VERSION;
+    box.dataset.state = 'pending';
+    box.style.display = 'flex';
+    box.style.alignItems = 'center';
+    box.style.marginBottom = '10px';
+
+    var pill = document.createElement('span');
+    pill.style.display = 'inline-flex';
+    pill.style.alignItems = 'stretch';
+    pill.style.padding = '0 9px 0 0';
+    pill.style.borderRadius = '3px';
+    pill.style.overflow = 'hidden';
+    pill.style.background = 'rgba(255,255,255,0.10)';
+
+    var bar = document.createElement('span');
+    bar.style.width = '2px';
+    bar.style.flex = '0 0 2px';
+    bar.style.background = '#6b6b6b';
+
+    var text = document.createElement('span');
+    text.textContent = '评分查询中';
+    text.style.fontSize = '11px';
+    text.style.fontWeight = '500';
+    text.style.color = '#9c9c9c';
+    text.style.whiteSpace = 'nowrap';
+    text.style.padding = '4px 0';
+    text.style.marginLeft = '8px';
+    text.style.lineHeight = '15px';
+
+    pill.append(bar, text);
+    box.appendChild(pill);
+    anchor.prepend(box);
+
+    if (!reduceMotion && pill.animate) {
+      try {
+        pill.animate([{ opacity: 1 }, { opacity: 0.45 }, { opacity: 1 }],
+                     { duration: 1400, iterations: Infinity });
+      } catch (_) {}
+    }
+    return box;
+  }
+
   function paint(anchor, id, data) {
     var old = document.getElementById(MARK);
     if (old) old.remove();
@@ -391,6 +453,7 @@ function pageAgent(extractTitleId, VERSION) {
     box.id = MARK;
     box.dataset.nfrId = id;
     box.dataset.v = VERSION; // 便于在 Elements 面板确认实际加载的脚本版本
+    box.dataset.state = 'done';
     box.style.display = 'flex';
     box.style.flexWrap = 'wrap';
     box.style.alignItems = 'center';
@@ -405,6 +468,8 @@ function pageAgent(extractTitleId, VERSION) {
     var id = extractTitleId(location.href);
     var existing = document.getElementById(MARK);
     if (!id) { if (existing) existing.remove(); return; }
+    // pending 也要提前返回:请求已在飞行中,其 .then 会负责重绘。
+    // 否则 MutationObserver 每触发一次就会重复发起请求。
     if (existing && existing.dataset.nfrId === id) return;
 
     var anchor = findAnchor();
@@ -413,6 +478,7 @@ function pageAgent(extractTitleId, VERSION) {
     var cached = memGet(id);
     if (cached) { paint(anchor, id, cached); return; }
 
+    paintPending(anchor, id);
     fetch('/__nfr?id=' + encodeURIComponent(id), { credentials: 'omit' })
       .then(function (r) { return r.json(); })
       .then(function (d) {
@@ -423,7 +489,10 @@ function pageAgent(extractTitleId, VERSION) {
           if (a) paint(a, id, d);
         }
       })
-      .catch(function () {});
+      .catch(function () {
+        var box = document.getElementById(MARK);
+        if (box && box.dataset.state === 'pending') box.remove();
+      });
   }
 
   var observer = new MutationObserver(function () {

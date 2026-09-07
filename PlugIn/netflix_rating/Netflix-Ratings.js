@@ -1,7 +1,7 @@
 'use strict';
 /*
  * Netflix 网页端豆瓣 + IMDb 评分
- * 版本:2026.09.07.5    最后更新:2026-09-07
+ * 版本:2026.09.07.6    最后更新:2026-09-07
  *
  * 本文件同时用于 Surge 运行时与 Node 测试:
  *   - 底部 module.exports 守卫让 Surge(无 module)不报错
@@ -15,7 +15,7 @@
  * #surge-nfr-badge 的 data-v,即可知道实际加载的是哪一版。
  */
 
-const VERSION = '2026.09.07.5';
+const VERSION = '2026.09.07.6';
 
 // ==================== 缓存 ====================
 
@@ -163,27 +163,45 @@ function buildDoubanUrl(query) {
 // ==================== 编排 ====================
 
 const TTL_OK = 7 * 24 * 60 * 60 * 1000;
+// 配了 key 却没拿到 IMDb,多半是上游抖动而非真的没有评分。
+// 若按成功缓存 7 天,一次抖动会被冻结一周,因此单列一档短 TTL。
+const TTL_PARTIAL = 30 * 60 * 1000;
 const TTL_FAIL = 10 * 60 * 1000;
 
 async function resolveRatings(titleId, deps) {
-  const meta = await deps.fetchMeta(titleId);
-  if (!meta || !meta.name) return { ok: false };
+  // diag 会随响应一起返回。此前排查「为什么这部片没有 IMDb」只能靠反复猜,
+  // 现在在浏览器 Network 面板看 /__nfr 的响应即可定位是哪一步断的。
+  const diag = { name: null, omdb: null, douban: null, path: null };
 
-  // 未配置 OMDb key 时 fetchOmdb 返回 null,此时降级为按英文名 + 年份 + 类型
-  // 启发式匹配豆瓣;有 imdbID 时按 ID 精确匹配。
+  const meta = await deps.fetchMeta(titleId);
+  if (!meta || !meta.name) {
+    diag.omdb = 'skipped';
+    return { ok: false, diag: Object.assign(diag, { meta: 'fail' }) };
+  }
+  diag.meta = 'ok';
+  diag.name = meta.name + ' (' + (meta.year || '?') + ', ' + (meta.type || '?') + ')';
+
   const omdb = await deps.fetchOmdb(meta);
+  diag.omdb = !deps.variant || deps.variant === 'n' ? 'no-key'
+            : !omdb ? 'no-match'
+            : !omdb.rating ? 'no-rating'
+            : 'ok';
+
+  // 有 imdbID 就按 ID 精确匹配,否则按英文名 + 年份 + 类型启发式匹配。
+  diag.path = omdb && omdb.imdbId ? 'by-id' : 'by-title';
   const douban = omdb && omdb.imdbId
     ? await deps.fetchDoubanById(omdb.imdbId)
     : await deps.fetchDoubanByTitle(meta);
+  diag.douban = !douban ? 'no-match' : !douban.rating ? 'no-rating' : 'ok';
 
   const imdb = omdb && omdb.rating
     ? { rating: omdb.rating, votes: omdb.votes,
         url: 'https://www.imdb.com/title/' + omdb.imdbId + '/' }
     : null;
   const db = douban && douban.rating ? douban : null;
-  if (!imdb && !db) return { ok: false };
+  if (!imdb && !db) return { ok: false, diag: diag };
 
-  return { ok: true, title: meta, imdb: imdb, douban: db };
+  return { ok: true, title: meta, imdb: imdb, douban: db, diag: diag };
 }
 
 async function serveRatings(titleId, store, deps, now) {
@@ -194,7 +212,10 @@ async function serveRatings(titleId, store, deps, now) {
   if (hit) return hit;
 
   const result = await resolveRatings(titleId, deps);
-  store.write(cacheWrap(result, result.ok ? TTL_OK : TTL_FAIL, now), key);
+  // 配了 key 却缺 IMDb 视为部分成功,只短暂缓存,以便下次自动重试。
+  const partial = result.ok && deps.variant === 'k' && !result.imdb;
+  const ttl = !result.ok ? TTL_FAIL : partial ? TTL_PARTIAL : TTL_OK;
+  store.write(cacheWrap(result, ttl, now), key);
 
   const pushed = indexPush(store.read(CACHE_INDEX_KEY), key, CACHE_MAX_ENTRIES);
   pushed.evicted.forEach(function (k) { store.write('', k); });
@@ -546,6 +567,7 @@ if (typeof module !== 'undefined' && module.exports) {
     CACHE_INDEX_KEY: CACHE_INDEX_KEY,
     CACHE_MAX_ENTRIES: CACHE_MAX_ENTRIES,
     TTL_OK: TTL_OK,
+    TTL_PARTIAL: TTL_PARTIAL,
     TTL_FAIL: TTL_FAIL,
     cacheWrap: cacheWrap,
     cacheRead: cacheRead,

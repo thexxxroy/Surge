@@ -5,9 +5,9 @@
 #!category=📺 流媒体
 
 [Script]
-NetflixRatingsAPI = type=http-request,pattern=^https://www\.netflix\.com/__nfr\?,requires-body=0,timeout=10,argument={{{OMDbApiKey}}},script-path=https://raw.githubusercontent.com/thexxxroy/Surge/refs/heads/main/PlugIn/netflix_rating/Netflix-Ratings.js?v=5
+NetflixRatingsAPI = type=http-request,pattern=^https://www\.netflix\.com/__nfr\?,requires-body=0,timeout=15,argument={{{OMDbApiKey}}},script-path=https://raw.githubusercontent.com/thexxxroy/Surge/refs/heads/main/PlugIn/netflix_rating/Netflix-Ratings.js?v=6
 
-NetflixRatingsInject = type=http-response,pattern=^https://www\.netflix\.com/(?:title/\d+|browse)(?:[/?]|$),requires-body=1,max-size=5242880,timeout=10,script-path=https://raw.githubusercontent.com/thexxxroy/Surge/refs/heads/main/PlugIn/netflix_rating/Netflix-Ratings.js?v=5
+NetflixRatingsInject = type=http-response,pattern=^https://www\.netflix\.com/(?:title/\d+|browse)(?:[/?]|$),requires-body=1,max-size=5242880,timeout=15,script-path=https://raw.githubusercontent.com/thexxxroy/Surge/refs/heads/main/PlugIn/netflix_rating/Netflix-Ratings.js?v=6
 
 [MITM]
 hostname = %APPEND% www.netflix.com

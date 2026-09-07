@@ -1,7 +1,6 @@
 'use strict';
 /*
  * Netflix 网页端豆瓣 + IMDb 评分
- * 设计文档:docs/superpowers/specs/2026-09-07-netflix-ratings-design.md
  *
  * 本文件同时用于 Surge 运行时与 Node 测试:
  *   - 底部 module.exports 守卫让 Surge(无 module)不报错
@@ -305,12 +304,68 @@ function pageAgent(extractTitleId) {
     return null;
   }
 
-  function link(text, href) {
+  // CSP 只允许用 CSSOM 设值,不能注入 <style>,也就没有 :hover 伪类,
+  // 因此悬停态用事件实现。
+  var SOURCES = {
+    douban: { label: '豆瓣', accent: '#41B96A' },
+    imdb: { label: 'IMDb', accent: '#F5C518' }
+  };
+  var reduceMotion = false;
+  try { reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) {}
+
+  function chit(kind, score, votes, href) {
+    var meta = SOURCES[kind];
     var a = document.createElement('a');
     a.href = href;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
-    a.textContent = text;
+    // 投票数放进 tooltip,避免占用弹窗本就紧张的视觉空间
+    a.title = votes ? meta.label + ' ' + score + ' · ' + votes + ' 人评价'
+                    : meta.label + ' ' + score;
+    a.style.display = 'inline-flex';
+    a.style.alignItems = 'stretch'; // 让色条贯通上下边缘,而非浮在中间
+    a.style.padding = '0 9px 0 0';
+    a.style.borderRadius = '3px';
+    a.style.overflow = 'hidden';
+    a.style.background = 'rgba(255,255,255,0.10)';
+    a.style.textDecoration = 'none';
+    a.style.lineHeight = '1';
+    a.style.verticalAlign = 'middle';
+    if (!reduceMotion) a.style.transition = 'background 120ms ease';
+
+    // 左侧色条承担来源识别,省去整框描边
+    var bar = document.createElement('span');
+    bar.style.width = '2px';
+    bar.style.flex = '0 0 2px';
+    bar.style.background = meta.accent;
+
+    // 垂直留白放在内层,这样色条能贯通整个徽章高度
+    var inner = document.createElement('span');
+    inner.style.display = 'inline-flex';
+    inner.style.alignItems = 'center';
+    inner.style.gap = '6px';
+    inner.style.padding = '4px 0';
+    inner.style.marginLeft = '8px';
+
+    var label = document.createElement('span');
+    label.textContent = meta.label;
+    label.style.fontSize = '11px';
+    label.style.fontWeight = '500';
+    label.style.color = '#9c9c9c';
+    label.style.whiteSpace = 'nowrap';
+
+    var num = document.createElement('span');
+    num.textContent = score;
+    num.style.fontSize = '15px';
+    num.style.fontWeight = '700';
+    num.style.color = '#f2f2f2';
+    num.style.fontVariantNumeric = 'tabular-nums'; // 让 8.9 与 10 对齐,便于横向比较
+    num.style.letterSpacing = '0.01em';
+
+    inner.append(label, num);
+    a.append(bar, inner);
+    a.addEventListener('mouseenter', function () { a.style.background = 'rgba(255,255,255,0.18)'; });
+    a.addEventListener('mouseleave', function () { a.style.background = 'rgba(255,255,255,0.10)'; });
     return a;
   }
 
@@ -319,18 +374,19 @@ function pageAgent(extractTitleId) {
     if (old) old.remove();
     if (!data || !data.ok) return;
     var parts = [];
-    if (data.douban) parts.push(link('豆瓣 ' + data.douban.rating, data.douban.url));
-    if (data.imdb) parts.push(link('IMDb ' + data.imdb.rating, data.imdb.url));
+    if (data.douban) parts.push(chit('douban', data.douban.rating, data.douban.votes, data.douban.url));
+    if (data.imdb) parts.push(chit('imdb', data.imdb.rating, data.imdb.votes, data.imdb.url));
     if (!parts.length) return;
-    var span = document.createElement('span');
-    span.id = MARK;
-    span.dataset.nfrId = id;
-    for (var i = 0; i < parts.length; i++) {
-      if (i) span.appendChild(document.createTextNode(' · '));
-      span.appendChild(parts[i]);
-    }
-    span.appendChild(document.createElement('br'));
-    anchor.prepend(span);
+    var box = document.createElement('span');
+    box.id = MARK;
+    box.dataset.nfrId = id;
+    box.style.display = 'flex';
+    box.style.flexWrap = 'wrap';
+    box.style.alignItems = 'center';
+    box.style.gap = '8px';
+    box.style.marginBottom = '10px';
+    for (var i = 0; i < parts.length; i++) box.appendChild(parts[i]);
+    anchor.prepend(box);
   }
 
   function sync() {

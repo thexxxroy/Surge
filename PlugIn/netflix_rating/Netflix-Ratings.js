@@ -1,11 +1,21 @@
 'use strict';
 /*
  * Netflix 网页端豆瓣 + IMDb 评分
+ * 版本:2026.09.07.3    最后更新:2026-09-07
  *
  * 本文件同时用于 Surge 运行时与 Node 测试:
  *   - 底部 module.exports 守卫让 Surge(无 module)不报错
  *   - 底部 $done 守卫让 Node 加载时不执行分派逻辑
+ *
+ * 【发布流程】改动脚本后必须两处一起改,否则用户会卡在旧代码上:
+ *   1. 本文件的 VERSION 常量与上面的版本注释
+ *   2. Netflix-Ratings.sgmodule 里两处 script-path 末尾的 ?v=N 各加一
+ * Surge 按 URL 缓存远程脚本,不换 URL 就不会重新拉取。
+ * 排查时看页面里 <script id="surge-nfr-agent" data-v="..."> 或
+ * #surge-nfr-badge 的 data-v,即可知道实际加载的是哪一版。
  */
+
+const VERSION = '2026.09.07.3';
 
 // ==================== 缓存 ====================
 
@@ -278,7 +288,7 @@ function handleApiRequest() {
 
 // 在浏览器页面中运行。经 toString() 序列化注入,因此不得引用本文件的其他变量;
 // extractTitleId 作为实参传入,这样它既能被单元测试也能在页面中使用,只维护一份。
-function pageAgent(extractTitleId) {
+function pageAgent(extractTitleId, VERSION) {
   'use strict';
   var MARK = 'surge-nfr-badge';
   // Netflix 的 class 是构建期生成的,会随发版失效。用候选数组而非单一选择器,
@@ -380,6 +390,7 @@ function pageAgent(extractTitleId) {
     var box = document.createElement('span');
     box.id = MARK;
     box.dataset.nfrId = id;
+    box.dataset.v = VERSION; // 便于在 Elements 面板确认实际加载的脚本版本
     box.style.display = 'flex';
     box.style.flexWrap = 'wrap';
     box.style.alignItems = 'center';
@@ -440,8 +451,10 @@ function handleInject() {
     const nonceMatch = body.match(/<script\b[^>]*\bnonce=(['"])([^'"]+)\1/i);
     const nonce = nonceMatch && /^[A-Za-z0-9+/_=-]+$/.test(nonceMatch[2])
       ? ' nonce="' + nonceMatch[2] + '"' : '';
-    const code = '(' + pageAgent.toString() + ')(' + extractTitleId.toString() + ');';
-    const tag = '<script id="surge-nfr-agent"' + nonce + '>' + code + '</script>';
+    const code = '(' + pageAgent.toString() + ')(' + extractTitleId.toString() +
+                 ', ' + JSON.stringify(VERSION) + ');';
+    const tag = '<script id="surge-nfr-agent" data-v="' + VERSION + '"' + nonce + '>' +
+                code + '</script>';
     $done({ body: body.replace(/<\/body\s*>/i, tag + '</body>') });
   } catch (_) {
     // 任何异常都原样放行,绝不影响 Netflix 本身
@@ -483,7 +496,8 @@ if (typeof module !== 'undefined' && module.exports) {
     resolveRatings: resolveRatings,
     serveRatings: serveRatings,
     surgeDeps: surgeDeps,
-    dispatch: dispatch
+    dispatch: dispatch,
+    VERSION: VERSION
   };
 }
 

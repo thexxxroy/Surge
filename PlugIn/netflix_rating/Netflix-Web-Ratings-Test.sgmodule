@@ -1,8 +1,0 @@
-#!name=Netflix 网页评分显示测试
-#!desc=仅验证《心跳为你停》网页版详情页的评分显示。使用明确标注的来源快照，非实时自动查询。只解密 www.netflix.com，无外部脚本依赖。
-
-[Script]
-NetflixWebRatingsTest = type=http-response,pattern=^https://www\.netflix\.com/(?:title/81059939(?:[/?]|$)|browse(?:[/?]|$)),requires-body=true,max-size=5242880,timeout=5,script-path=https://raw.githubusercontent.com/thexxxroy/Surge/refs/heads/main/PlugIn/netflix_rating/Netflix-Web-Ratings-Test.js
-
-[MITM]
-hostname = %APPEND% www.netflix.com

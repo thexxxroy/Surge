@@ -2,6 +2,7 @@
 /*
  * Netflix 网页端豆瓣 + IMDb 评分
  * 版本:2026.09.07.7    最后更新:2026-09-07
+ * 作者:thexxxroy    项目:https://github.com/thexxxroy/Surge
  *
  * 本文件同时用于 Surge 运行时与 Node 测试:
  *   - 底部 module.exports 守卫让 Surge(无 module)不报错

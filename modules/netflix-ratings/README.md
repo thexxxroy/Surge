@@ -111,7 +111,7 @@ https://www.netflix.com/__nfr?id=81059939&fresh=1
 **某部片什么都不显示** — 豆瓣和 OMDb 都没匹配上,通常是冷门片或译名差异过大。
 
 **曾经正常,某天全部失效** — 大概率是 Netflix 改了页面结构,注入锚点失效。
-需要更新 `Netflix-Ratings.js` 中 `pageAgent` 的 `ANCHORS` 数组。
+需要更新 `netflix-ratings.js` 中 `pageAgent` 的 `ANCHORS` 数组。
 
 ## 致谢
 

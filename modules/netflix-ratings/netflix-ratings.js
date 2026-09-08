@@ -9,7 +9,7 @@
  *
  * 【发布流程】改动脚本后必须两处一起改,否则用户会卡在旧代码上:
  *   1. 本文件的 VERSION 常量与上面的版本注释
- *   2. Netflix-Ratings.sgmodule 里两处 script-path 末尾的 ?v=N 各加一
+ *   2. netflix-ratings.sgmodule 里两处 script-path 末尾的 ?v=N 各加一
  * Surge 按 URL 缓存远程脚本,不换 URL 就不会重新拉取。
  * 排查时看页面里 <script id="surge-nfr-agent" data-v="..."> 或
  * #surge-nfr-badge 的 data-v,即可知道实际加载的是哪一版。

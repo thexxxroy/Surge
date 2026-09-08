@@ -2,13 +2,15 @@
 #!desc=在 Netflix 网页版详情页显示豆瓣与 IMDb 评分。开箱即用,无需任何配置即可显示豆瓣评分;填入免费的 OMDb API Key 后可额外显示 IMDb 评分,并让豆瓣匹配更精确。仅支持网页端 — iOS 与 Apple TV 因 Netflix 客户端使用 MSL 加密而无法支持。
 #!arguments=OMDbApiKey:none
 #!arguments-desc=OMDb API Key(可选):保持默认值 none 即可正常使用,只是仅显示豆瓣评分。\n\n填入后额外显示 IMDb 评分,且豆瓣改用 IMDb ID 精确匹配(比按片名匹配更准)。\n\n在 https://www.omdbapi.com/apikey.aspx 免费申请,1000 次/天。注册后需点击邮件中的链接激活才会生效。
+#!author=thexxxroy
+#!homepage=https://github.com/thexxxroy/Surge
 #!category=📺 流媒体
-#!更新时间: 2026.9.8
+#!date=2026-09-08
 
 [Script]
-NetflixRatingsAPI = type=http-request,pattern=^https://www\.netflix\.com/__nfr\?,requires-body=0,timeout=15,argument={{{OMDbApiKey}}},script-path=https://raw.githubusercontent.com/thexxxroy/Surge/refs/heads/main/PlugIn/NetflixRating/Netflix-Ratings.js?v=7
+NetflixRatingsAPI = type=http-request,pattern=^https://www\.netflix\.com/__nfr\?,requires-body=0,timeout=15,argument={{{OMDbApiKey}}},script-path=https://raw.githubusercontent.com/thexxxroy/Surge/refs/heads/main/modules/netflix-ratings/netflix-ratings.js?v=7
 
-NetflixRatingsInject = type=http-response,pattern=^https://www\.netflix\.com/(?:title/\d+|browse)(?:[/?]|$),requires-body=1,max-size=5242880,timeout=15,script-path=https://raw.githubusercontent.com/thexxxroy/Surge/refs/heads/main/PlugIn/NetflixRating/Netflix-Ratings.js?v=7
+NetflixRatingsInject = type=http-response,pattern=^https://www\.netflix\.com/(?:title/\d+|browse)(?:[/?]|$),requires-body=1,max-size=5242880,timeout=15,script-path=https://raw.githubusercontent.com/thexxxroy/Surge/refs/heads/main/modules/netflix-ratings/netflix-ratings.js?v=7
 
 [MITM]
 hostname = %APPEND% www.netflix.com

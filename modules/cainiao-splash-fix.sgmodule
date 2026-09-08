@@ -6,6 +6,12 @@
 #!date=2026-09-04
 
 [Rule]
+# 注意:以下都是通用广告 SDK 域名,并非菜鸟专有。
+# 其他接入了穿山甲或优量汇的 App 同样会被拦到 —— 通常这正是想要的效果,
+# 若某个 App 因此异常,删掉对应行即可。
+#
+# 补丁性质:菜鸟开屏广告大部分已被通用去广告规则集覆盖,这里只补实测漏网的域名。
+
 # 穿山甲广告接口及备用接口
 DOMAIN,api-access.pangolin-sdk-toutiao.com,REJECT
 DOMAIN,api-access.pangolin-sdk-toutiao1.com,REJECT

@@ -4,7 +4,7 @@
 #!arguments-desc=OMDb API Key(可选):保持默认值 none 即可正常使用,只是仅显示豆瓣评分。\n\n填入后额外显示 IMDb 评分,且豆瓣改用 IMDb ID 精确匹配(比按片名匹配更准)。\n\n在 https://www.omdbapi.com/apikey.aspx 免费申请,1000 次/天。注册后需点击邮件中的链接激活才会生效。
 #!author=thexxxroy
 #!homepage=https://github.com/thexxxroy/Surge
-#!category=📺 流媒体
+#!category=流媒体
 #!date=2026-09-08
 
 [Script]

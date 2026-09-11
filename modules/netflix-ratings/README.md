@@ -1,6 +1,7 @@
 # Netflix 豆瓣 / IMDb 评分
 
-在 Netflix **网页版**详情页显示豆瓣与 IMDb 评分。
+在 Netflix **网页版**详情页显示豆瓣与 IMDb 评分。<img width="710" height="520" alt="951736b5387cb34407808673bc0f2607" src="https://github.com/user-attachments/assets/f951b654-262d-4fed-9776-1c855192b6aa" />
+
 
 **开箱即用** —— 装上模块就能看到豆瓣评分,不需要注册任何账号或申请 key。
 想额外显示 IMDb 评分,再自己申请一个免费的 OMDb key 填进去即可。
